@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="./hl.css">
+<style>
+:root {
+    --size: min(100vw, 100vh);
+    --offset: calc(calc(100vw - var(--size)) / 2);
+    --edit-width: calc(100vw - var(--size) * 1.01);
+    --edit-bottom: calc(var(--size) * .45);
+    --edit-right: calc(var(--size) * .3);
+}
+
+body {
+    background: #111;
+    display: grid;
+    overflow-x: hidden;
+}
+
+body * {
+    font-family: "Courier", monospace; /* "Courier" "Liberation Mono" "DejaVu Sans Mono" */
+}
+
+body > * {
+    position: absolute;
+    box-sizing: border-box;
+    color: #eee;
+    border: calc(var(--size) * .005) solid #333;
+
+    scrollbar-color: rgba(68, 68, 68, 0.5) transparent;
+    outline: none;
+}
+
+#highlight::-webkit-scrollbar {
+    display: none;
+}
+
+#output {
+    left: calc(var(--size) * .01);
+    top: calc(var(--size) * .01);
+    width: calc(var(--size) * .98);
+    height: calc(var(--size) * .98);
+
+    background: #222;
+    border: calc(var(--size) * .005) solid #333;
+}
+
+#point {
+    left: var(--size);
+    top: calc(var(--size) * .01);
+    width: calc(var(--edit-width) * .7);
+    height: calc(var(--size) * .06);
+
+    padding-left: calc(var(--size) * .015);
+}
+
+#cross {
+    left: calc(var(--size) + (var(--edit-width) * .64));
+    top: calc(var(--size) * .0125);
+    width: calc(var(--edit-width) * .06);
+    height: calc(var(--size) * .06);
+
+    padding-top: -calc(var(--size) * 0.01);
+    font-size: calc(var(--size) * 0.03);
+
+    background: none;
+    border: none;
+}
+
+#cross, #del {
+    font-family: "Liberation Mono";
+    font-weight: bold;
+}
+
+#cross:hover, #cross:active {
+    color: #888;
+}
+
+#full {
+    left: calc(var(--size) + var(--edit-width) * .7);
+    top: calc(var(--size) * .01);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+}
+    
+body.fullscreen #output {
+    position: fixed;
+    left: 0; top: 0;
+    width: 100dvw; height: 100dvh;
+    z-index: 9999;
+    border: none;
+}
+
+#exec {
+    left: calc(var(--size) + var(--edit-width) * .8);
+    top: calc(var(--size) * .01);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+}
+
+#halt {
+    left: calc(var(--size) + var(--edit-width) * .9);
+    top: calc(var(--size) * .01);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+}
+
+#ctrlz, #s_ctrlz, #tab, #s_tab {
+    display: none;
+}
+
+#ctrlz {
+    left: calc(var(--size) + var(--edit-width) * .9 - 15px);
+    top: calc(var(--size) * .93 - 15px);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+    z-index: 1;
+}
+
+#s_ctrlz {
+    left: calc(var(--size) + var(--edit-width) * .85 - 15px);
+    top: calc(var(--size) * .93 - 15px);
+    width: calc(var(--edit-width) * .05);
+    height: calc(var(--size) * .06);
+    z-index: 1;
+}
+
+#tab {
+    left: calc(var(--size) + var(--edit-width) * .75 - 15px);
+    top: calc(var(--size) * .93 - 15px);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+    z-index: 1;
+}
+
+#s_tab {
+    left: calc(var(--size) + var(--edit-width) * .7 - 15px);
+    top: calc(var(--size) * .93 - 15px);
+    width: calc(var(--edit-width) * .05);
+    height: calc(var(--size) * .06);
+    z-index: 1;
+}
+
+#input, #highlight, #nums {
+    font-size: calc(var(--size) * 1rem); /* 1rem менять нет смысла, но апскейл начинает работать */
+    line-height: 1.1;
+    tab-size: 4;
+}
+
+#input, #highlight {
+    left: var(--size);
+    top: calc(var(--size) * .08);
+    padding: 0;
+}
+
+#input_wrap {
+    left: calc(var(--size) * 1.07);
+    top: calc(var(--size) * .08);
+    width: calc(var(--edit-width) - var(--size) * 0.07);
+    height: calc(var(--size) * .91);
+    position: absolute;
+    box-sizing: border-box;
+    overflow: auto;
+    border: calc(var(--size) * .005) solid #333;
+    border-left: none;
+    background: transparent;
+}
+
+#input {
+    box-sizing: border-box;
+    background: transparent;
+    color: transparent;
+    overflow: hidden;
+    height: auto;
+    min-width: 100%;
+    border: none;
+    outline: none;
+
+    white-space: nowrap;
+    caret-color: #eee;
+    resize: none;
+}
+
+#ground {
+    position: absolute;
+    background: #222;
+    left: var(--size);
+    top: calc(var(--size) * .08);
+    width: var(--edit-width);
+    height: calc(var(--size) * .91);
+}
+
+#highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 0;
+    overflow: visible;
+    pointer-events: none;
+    background: transparent;
+    padding-bottom: 0;
+}
+
+#highlight .bracket-match {
+    background: #3a3d41;
+    border-radius: calc(var(--size) * .01);
+}
+
+#nums {
+    left: var(--size);
+    top: calc(var(--size) * .08);
+    width: calc(var(--size) * .07);
+    height: calc(var(--size) * .91);
+
+    resize: none;
+    white-space: pre;
+    overflow: hidden;
+    margin: 0;
+    padding-bottom: calc(var(--size) * .45);
+    padding-top: 0px;
+
+    border-right: none;
+    background: #1e1e1e;
+    pointer-events: none;
+    user-select: none;
+    color: #888;
+}
+
+#spacer {
+    background: transparent;
+    border: calc(var(--size) * .005) solid transparent;
+    display: block;          
+    height: calc(var(--size) * .01);
+}
+
+#meta_page {
+    left: calc(var(--size) * 1.07 + 15px);
+    top: calc(var(--size) * .93 - 15px);
+    width: calc(var(--edit-width) * .1);
+    height: calc(var(--size) * .06);
+    z-index: 1;
+
+    border: calc(var(--size) * .005) dashed #333;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.3s, border-color 0.3s;
+    overflow: hidden;
+    opacity: 0.8;
+    background-color: #222;
+    /*background-color: #1e1e1e;*/
+    /*display: none;*/
+}
+
+#meta_page:hover {
+    background-color: #1e1e1e;
+    border: calc(var(--size) * .0075) dotted #333;
+    color: #aaa;
+}
+
+#file_drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    left: calc(var(--size) * 1.07 + 15px);
+    top: calc(var(--size) * .79 - 15px);
+    width: min(calc(var(--size) * .3), calc(var(--edit-width) - var(--size) * 0.37 - 15px));
+    height: calc(var(--size) * .2);
+    z-index: 1;
+
+    border: calc(var(--size) * .005) dashed #333;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.3s, border-color 0.3s;
+    opacity: 0.8;
+    background-color: #1e1e1e;
+    overflow: hidden;
+    display: none;
+}
+
+#file_drop input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 3;
+}
+
+#file_drop_text {
+    width: 100%;
+    padding: calc(var(--size) * .02);
+    z-index: 2;
+    background-color: #222;
+}
+
+#file_drop:hover,
+#file_drop.dragover {
+    border: calc(var(--size) * .0075) dotted #333;
+    background-color: #222;
+}
+
+#del {
+    --parent: min(calc(var(--size) * .3), calc(var(--edit-width) - var(--size) * 0.37 - 15px));
+
+    left: calc(var(--size) * 1.01 + 15px + var(--parent));
+    top: calc(var(--size) * .795 - 15px);
+    width: calc(var(--edit-width) * .06);
+    height: calc(var(--size) * .06);
+
+    padding-top: -calc(var(--size) * 0.01);
+    font-size: calc(var(--size) * 0.03);
+    z-index: 4;
+
+    opacity: 0.5;
+    background: none;
+    border: none;
+    display: none;
+}
+
+#del:hover, #del:active {
+    color: #888;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    #ctrlz, #s_ctrlz, #tab, #s_tab {
+        display: block;
+    }
+}
+
+@media (max-aspect-ratio: 3/2) {
+    #output {
+        left: var(--offset);
+        }
+
+    #point {
+        left: var(--offset);
+        top: var(--size);
+        width: calc(var(--size) * .98 * .7);
+    }
+
+    #cross {
+        left: calc(var(--offset) + var(--size) * .98 * .65);
+        top: calc(var(--size) * 1.0025);
+    }
+        
+    #full {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .7));
+        top: var(--size);
+        width: calc(var(--size) * .98 * .1);
+    }
+
+    #exec {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .8));
+        top: var(--size);
+        width: calc(var(--size) * .98 * .1);
+    }
+
+    #halt {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .9));
+        top: var(--size);
+        width: calc(var(--size) * .98 * .1);
+    }
+
+    #input_wrap {
+        left: calc(var(--offset) + var(--size) * 0.07);
+        top: calc(var(--size) * 1.07);
+        width: calc(var(--size) * .91);
+    }
+
+    #ground {
+        left: var(--offset);
+        top: calc(var(--size) * 1.07);
+        width: calc(var(--size) * .98);
+    }
+
+    #nums {
+        left: var(--offset);
+        top: calc(var(--size) * 1.07);
+    }
+
+    #spacer {
+        top: calc(var(--size) * 1.98);
+    }
+
+    #ctrlz {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .9) - 15px);
+        top: calc(var(--size) * 1.91 - 15px);
+        width: calc(var(--size) * .98 * .1);
+    }
+
+    #s_ctrlz {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .85) - 15px);
+        top: calc(var(--size) * 1.91 - 15px);
+        width: calc(var(--size) * .98 * .05);
+    }
+
+    #tab {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .75) - 15px);
+        top: calc(var(--size) * 1.91 - 15px);
+        width: calc(var(--size) * .98 * .1);
+    }
+
+    #s_tab {
+        left: calc(var(--offset) + calc(var(--size) * .98 * .7) - 15px);
+        top: calc(var(--size) * 1.91 - 15px);
+        width: calc(var(--size) * .98 * .05);
+    }
+
+    #file_drop {
+        left: calc(var(--offset) + var(--size) * .07 + 15px);
+        top: calc(var(--size) * 1.77 - 15px);
+        width: calc(var(--size) * .3);
+    }
+
+    #del {
+        left: calc(var(--offset) + var(--size) * .32 + 15px);;
+        top: calc(var(--size) * 1.77 - 15px);
+    }
+}
+
+button {
+    background: #444;
+}
+
+button:hover {
+    background: #555;
+}
+
+button:active {
+    background: #333;
+}
+
+input, textarea {
+    background: #222;
+}
+</style>
+</head>
+<body>
+    
+<iframe id="output"></iframe>
+<input id="point" type="text"></input>
+<button id="cross">X</button>
+<button id="full">full</button>
+<button id="exec">exec</button>
+<button id="halt">halt</button>
+<button id="ctrlz">c_z</button>
+<button id="s_ctrlz">$</button>
+<button id="tab">tab</button>
+<button id="s_tab">$</button>
+<div id="ground"></div>
+<div id="input_wrap">
+    <pre id="highlight"></pre>
+    <textarea id="input" spellcheck="false"></textarea>
+</div>
+<pre id="nums" tabindex="-1"></pre>
+<!--<textarea id="nums" readonly tabindex="-1"></textarea>-->
+<div id="spacer"></div>
+<button id="del">X</button>
+<button id="meta_page">meta</button>
+<label id="file_drop">
+    <input type="file" id="file_input" multiple>
+    <div id="file_drop_text">
+        <span>send file</span>
+    </div>
+</label>
+
+
+<script id="sock">
+    if (window !== window.parent) {
+        var db = window.parent.db;
+        var store = window.parent.store;
+        var on_load = window.parent.on_load;
+        var meta = window.parent.meta;
+
+        const _included = new Set();
+        function include(key) {
+            if (_included.has(key)) return;
+            _included.add(key);
+
+            const parser = new DOMParser();
+            const new_content = parser.parseFromString(
+                db(key) || '', 'text/html'
+            );
+
+            const syncBlocks = Array.from(new_content.querySelectorAll('python[sync]'));
+            if (syncBlocks.length) window.parent.add_sync_blocks(syncBlocks.map(b => b.textContent));
+
+            new_content.querySelectorAll("style").forEach(style => {
+                document.head.appendChild(style);
+            });
+
+            const scripts = Array.from(new_content.querySelectorAll('script')).map(s => {
+                const code = s.textContent;
+                const type = s.type;
+                s.remove();
+                return { code, type };
+            });
+
+            document.body.insertAdjacentHTML('afterbegin', new_content.body.innerHTML);
+
+            scripts.forEach(({ code, type }) => {
+                if (!code.trim()) return;
+                const runner = document.createElement('script');
+                if (type) runner.type = type;
+                runner.textContent = code;
+                document.body.appendChild(runner);
+            });
+        }
+    } else {
+        let ws, cache = {}, dirty = {};
+        let cache_ready = false, ready_cbs = [];
+        let current_meta = {}, current_meta_key = null;
+        let file_cache = [];
+
+        function refresh_files() {
+            return fetch('./store/').then(r => r.json()).then(list => {
+                file_cache = list;
+                return file_cache;
+            });
+        }
+        refresh_files();
+
+        function store(key, value) {
+            if (key === undefined) {
+                return file_cache;
+            }
+            if (value === undefined) {
+                return fetch(`./store/${key}`)
+                    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.blob(); });
+            }
+            if (value === false) {
+                return fetch(`./store/${key}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: 'false'
+                }).then(r => r.json());
+            }
+            return fetch(`./store/${key}`, { method: 'POST', body: value })
+                .then(async r => ({ ok: r.ok, data: await r.json() }));
+        }
+
+        function connect() {
+            ws = new WebSocket(`ws://${location.host}/ws`);
+            ws.onopen = () => { dirty = {}; };
+            ws.onmessage = e => {
+                const patch = JSON.parse(e.data);
+                for (const [k, v] of Object.entries(patch)) {
+                    if (k === '__dirty') { refresh_files(); continue; }
+                    if (k === '__meta') { 
+                        if (v === point.value) meta(point.value).then(m => {
+                            if (meta_mode) {
+                                input.value = JSON.stringify(m || {}, null, 2);
+                                nums_update();
+                                update_highlight();
+                            }
+                        });
+                        continue;
+                    }
+                    v === null ? delete cache[k] : (cache[k] = v);
+                }
+                if (!cache_ready) {
+                    cache_ready = true;
+                    ready_cbs.splice(0).forEach(r => r());
+                }
+            };
+            ws.onclose = () => { cache_ready = false; setTimeout(connect, 1000); };
+        }
+        connect();
+
+        setInterval(() => {
+            if (!Object.keys(dirty).length || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify(dirty));
+            dirty = {};
+        }, 100);
+
+        function db (key, value) {
+            if (key === undefined) {
+                return Object.keys(cache).filter(k => k !== 'point' && k !== 'procs' && k !== '__dirty');
+            }
+            if (value === undefined) {
+                return cache[key] ?? null;
+            }
+            value === null ? delete cache[key] : (cache[key] = value);
+            dirty[key] = value;
+            return cache[key] ?? null;
+        }
+
+        function on_load (cb) {
+            if (cache_ready) cb();
+            else ready_cbs.push(cb);
+        }
+
+        function meta (key, value) {
+            if (key === undefined) return current_meta;
+
+            if (value !== undefined) {
+                if (key === current_meta_key) current_meta = value;
+                fetch(`./meta/${key}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(value)
+                });
+                return value;
+            }
+
+            if (typeof key === 'string') {
+                current_meta_key = key;
+                return fetch(`./meta/${key}`).then(r => r.json()).then(m => {
+                    current_meta = m || {};
+                    return current_meta;
+                });
+            }
+
+            current_meta = key;
+            if (current_meta_key !== null) {
+                fetch(`./meta/${current_meta_key}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(key)
+                });
+            }
+            return current_meta;
+        }
+
+        function dedent(text) {
+            const lines = text.split('\n');
+            const indents = lines.filter(l => l.trim() !== '').map(l => l.match(/^[ \t]*/)[0].length);
+            const min = indents.length ? Math.min(...indents) : 0;
+            return lines.map(l => l.slice(min)).join('\n');
+        }
+    }
+</script>
+
+
+<script id="js_head" type="text/plain">
+    const close = document.getElementById("close");
+    const log = document.getElementById("log");
+    var prev_log = "", close_log = false;
+
+
+    ['log', 'error', 'warn', 'info', 'debug'].forEach(method => {
+        const orig = console[method];
+        console[method] = function(...args) {
+            const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+            window.parent.js_output.push({ type: method, message });
+            orig.apply(console, args);
+        };
+    });
+    window.addEventListener('error', (e) => {
+        const line = e.lineno - (window.__line_offset || 0);
+        window.parent.js_output.push({ type: 'error', message: `${e.message} (${line})` });
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+        window.parent.js_output.push({ type: 'promise', message: e.reason?.message || String(e.reason) });
+    });
+
+
+    setInterval(() => {
+        const js_data = window.parent.js_output.map(x => `[${x.type}] ${x.message}`).join("\n").trim();
+        const py  = (localStorage["log"]      || "").trim();
+        const sync = (localStorage["sync_log"] || "").trim();
+        const data = (py   ? `=== py: ===\n${py}`     : "")
+                + (sync ? `\n\n=== sync: ===\n${sync}` : "")
+                + (js_data ? `\n\n=== js: ===\n${js_data}` : "");
+
+        if (close_log == false && data != prev_log && data != "") {
+            log.textContent = data.trim();
+            log.style.display = "block";
+            close.style.display = "block";
+            prev_log = data;
+        } 
+        if (data == "" || close_log == true) {
+            log.style.display = "none";
+            close.style.display = "none";
+        }
+    }, 300)
+
+
+    // убираем весь текст вне тегов (что бы были как коментарии, управляйость стилями)
+    document.addEventListener('DOMContentLoaded', () => {
+        const divs = document.querySelectorAll('div');
+        
+        divs.forEach(div => {
+            div.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    node.remove();
+                }
+            });
+        });
+    });
+
+
+    window.addEventListener('load', () => {
+        const scroll = window.innerWidth - document.documentElement.clientWidth;
+        document.documentElement.style.setProperty('--scroll', `${scroll}px`);
+    });
+
+
+    close.onclick = () => {close_log = true}
+</script>
+
+
+<script>
+const point = document.getElementById("point");
+const cross = document.getElementById("cross");
+const input_wrap = document.getElementById("input_wrap");
+const input = document.getElementById("input");
+const highlight = document.getElementById("highlight");
+const nums = document.getElementById("nums");
+const output = document.getElementById("output");
+const full = document.getElementById("full");
+const exec = document.getElementById("exec");
+const halt = document.getElementById("halt");
+const ctrlz = document.getElementById("ctrlz");
+const s_ctrlz = document.getElementById("s_ctrlz");
+const tab = document.getElementById("tab");
+const s_tab = document.getElementById("s_tab");
+const meta_page = document.getElementById("meta_page");
+const file_drop = document.getElementById("file_drop");
+const file_input = document.getElementById("file_input");
+const del = document.getElementById("del");
+const sock = document.getElementById("sock").outerHTML;
+let _js_head = document.getElementById("js_head").cloneNode(true);
+let _sync_error_lines = new Set();
+let delay, hl_abort, scroll_size;
+let meta_mode = false;
+_js_head.removeAttribute('type'); 
+const js_head = _js_head.outerHTML;
+window.js_output = [];
+const help = `
+<pre style="color: #777;">
+FULL - откроет проект на весь экран
+EXEC - запустит скрипт python
+HALT - остановит скрипт python
+
+[head] - содержимое будет добавлено в начало страницы
+[point] - текущая отображаемая страница
+
+db(key, value=str) - работаем со страницами
+store(key, data=file) - работаем с файлами
+  * оба поддерживаются в js и python
+  * если значение = False, произойдет удаление
+meta(key, data={}) - работаем с мета-тегами на js
+include(key) - импорт страницы на js
+
+&lt;python&gt; здесь ваш код python &lt;/python&gt;
+</pre>`;
+// ПОПРОБОВАТЬ ПЕРЕНЕСТИ В ОТДЕЛЬНЫЕ STYLE
+const out_style = `
+<style>
+:root {
+--size: min(calc(100vw - var(--scroll)), 100vh);
+scrollbar-color: rgba(68, 68, 68, 0.5) transparent;
+}
+* {
+font-size: 1rem;
+line-height: 1;
+}
+body {
+font-size: 0;
+color: #eee;
+}   
+body * {
+color: #eee;
+}
+python {
+display: none;
+}
+button {
+background: #444;
+}
+
+button:hover {
+background: #555;
+}
+
+button:active {
+background: #333;
+}
+
+input, textarea {
+background: #111;
+}
+
+div {
+background: #1e1e1e;
+}
+
+#log {
+    margin: 0;
+    padding: 0.5rem;
+    margin-left: calc(50cqw - 50cqmin);
+    top: 0;
+    left: 0;
+    width: 100cqmin;
+    height: 50cqmin;
+    box-sizing: border-box;
+    position: absolute;
+    background: #292222;
+    display: none;
+    opacity: 0.8;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    z-index: 2147483647;
+}
+
+#close {
+    position: absolute;
+    z-index: 2147483647;
+    left: calc(var(--size) * 0.95 + 50cqw - 50cqmin);
+    top: calc(var(--size) * 0.01);
+    font-family: "Segoe UI Symbol";
+    font-weight: bold;
+    background: none;
+    border: none;
+    display: none;
+}
+
+#close:hover, #close:active {
+    color: #888;
+}
+</style>
+
+<pre id="log">log...</pre>
+<button id="close">X</button>
+`.trim()
+
+
+if ("scroll_size") {
+    window.addEventListener('load', () => {
+        const div = document.createElement('div');
+        div.style.cssText = 'visibility:hidden;position:absolute;overflow:scroll;width:50px;height:50px;';
+        document.body.appendChild(div);
+        scroll_size = div.offsetWidth - div.clientWidth;
+        div.remove();
+    });
+}
+
+
+if ("output") {
+    let py_head = null;
+    fetch('./head').then(r => r.json()).then(data => { py_head = data; });
+
+    function upd_output(head, value, key) {
+        if (key.includes(".")) {
+            download();
+            file_drop.style.display = "flex";
+            meta_page.style.display = "none";
+            del.style.display = "block";
+            return;
+        } else {
+            meta_page.style.display = "block";
+            file_drop.style.display = "none";
+            del.style.display = "none";
+        }
+
+        if (!value) { output.srcdoc = help; return; }
+        else if (key == 'head') { value = "" }
+        if (py_head === null) { setTimeout(() => upd_output(head, value, key), 50); return; }
+        
+        const escape_value = value.replace(/<python([^>]*)>([\s\S]*?)<\/python>/g, (_, attrs, code) =>
+            `<python${attrs}>${code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</python>`
+        );
+
+        window.js_output = [];
+        const header = `<body>${py_head}${out_style}${js_head}${sock}${head || ""}`;
+        const offset = header.split('\n').length - 1;
+        output.srcdoc = header + `<script>window.__line_offset=${offset};<\/script>` + escape_value + `</body>`;
+    }
+}
+
+
+if ("highlight") {
+    function clean_for_save(value) {
+        if (value.split("\n").every(l => l.trim() === "")) return null;
+        return value;
+    }
+    
+
+    function update_highlight() {
+        if (hl_abort) hl_abort.abort();
+        hl_abort = new AbortController();
+        const pos = input.selectionStart;
+        const src = input.value.slice(0, pos) + "\ue000" + input.value.slice(pos);
+        fetch('./hl', {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            signal: hl_abort.signal,
+            body: JSON.stringify(src)
+        }).then(r => r.json()).then(html => {
+            highlight.innerHTML = html;
+            
+            const top = input_wrap.scrollTop;
+            const left = input_wrap.scrollLeft;
+
+            input.style.height = ``;
+            input.style.height = `calc(${highlight.scrollHeight}px + var(--edit-bottom) - ${scroll_size}px)`;
+            input.style.width = ``;
+            input.style.width = `calc(${highlight.scrollWidth}px + var(--edit-right))`;
+
+            requestAnimationFrame(() => {
+                input_wrap.scrollTop = top;
+                input_wrap.scrollLeft = left;
+                nums.scrollTop = top;
+            });
+        }).catch(() => {});
+    }
+
+    function nums_update () {
+        const lines = input.value.split("\n");
+        nums.innerHTML = lines.map((_, i) => {
+            const n = i + 1;
+            return _sync_error_lines.has(n)
+                ? `<span style="color:#e06c75">${n}</span>`
+                : n;
+        }).join("\n");
+    }
+}
+
+
+if ("input") {
+    function upd_input () {
+        const key = point.value;
+        input_wrap.style.borderColor = "";
+        nums.style.borderColor = "";
+        meta_page.textContent = "meta";
+        meta_mode = false;
+
+        _sync_error_lines = new Set();
+
+        meta(key).then(m => {
+            if (key.includes('.')) {
+                input.value = typeof m === 'string' ? m : (m ? JSON.stringify(m, null, 2) : "");
+                upd_output(db("head"), "", key);
+                nums_update();
+                update_highlight();
+                return;
+            }
+
+            const data = db(key);
+            input.value = data ?? "";
+            upd_output(db("head"), input.value || null, key);
+            nums_update();
+            update_highlight();
+        });
+    };
+
+    bounce = (f) => {
+        return () => {
+            clearTimeout(delay);
+            delay = setTimeout(() => { delay = null; f(); }, 300);
+        };
+    };
+
+    input_wrap.addEventListener("scroll", () => {
+        nums.scrollTop = input_wrap.scrollTop;
+    });
+
+    input.addEventListener("input", () => {
+        update_highlight();
+        if (clean_for_save(input.value) === null) upd_output(null, null, point.value);
+    });
+
+    input.addEventListener("input", bounce(() => {
+        const save_val = clean_for_save(input.value);
+        if (meta_mode || point.value.includes('.')) {
+            try {
+                const parsed = JSON.parse(save_val || "{}");
+                meta(parsed);
+                input_wrap.style.borderColor = "";
+                nums.style.borderColor = "";
+            } catch (e) {
+                input_wrap.style.borderColor = "#533";
+                nums.style.borderColor = "#533";
+            }
+            return;
+        }
+        db(point.value, save_val ?? null);
+        upd_output(db("head"), save_val, point.value);
+        nums_update();
+    }));
+
+    point.addEventListener('input', () => {
+        const val = point.value;
+        const filtered = val.replace(/[^\p{L}\p{N}_.]/gu, '');
+        if (filtered !== val) {
+            const sel = Math.max(0, point.selectionStart - (val.length - filtered.length));
+            point.value = filtered;
+            point.setSelectionRange(sel, sel);
+        }
+    }, true);
+
+    ["click", "keyup"].forEach(ev => input.addEventListener(ev, () => update_highlight()));
+    point.addEventListener("input", bounce(() => {
+        db("point", point.value);
+        upd_input();
+    }));
+    cross.addEventListener("click", () => { db("point", ""), point.value = ""; upd_input();})
+}
+
+
+if ("spaces") {
+    function indent_handler(shift) {
+        const TAB = "    ";
+        const val = input.value;
+        const start = input.selectionStart, end = input.selectionEnd;
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+
+        if (shift) {
+            const block = val.slice(lineStart, end);
+            const dedented = block.replace(/^(\t| {1,4})/gm, "");
+            if (dedented === block) return;
+
+            input.setSelectionRange(lineStart, end);
+            document.execCommand("insertText", false, dedented);
+            input.setSelectionRange(
+                start === end ? Math.max(lineStart, start - (block.length - dedented.length)) : lineStart,
+                lineStart + dedented.length
+            );
+        } else if (start === end) {
+            document.execCommand("insertText", false, TAB);
+        } else {
+            const selected = val.slice(lineStart, end);
+            const indented = selected.replace(/^/gm, TAB);
+
+            input.setSelectionRange(lineStart, end);
+            document.execCommand("insertText", false, indented);
+            input.setSelectionRange(lineStart, lineStart + indented.length);
+        }
+    }
+
+    input.addEventListener("keydown", (e) => {
+        if (e.key !== "Tab") return;
+        e.preventDefault();
+        indent_handler(e.shiftKey);
+    });
+
+    [ctrlz, s_ctrlz, tab, s_tab].forEach(btn => {
+        btn.addEventListener("mousedown", e => e.preventDefault()); // не отдаём фокус от input
+    });
+
+    tab.addEventListener("click", () => indent_handler(false));
+    s_tab.addEventListener("click", () => indent_handler(true));
+    ctrlz.addEventListener("click", () => document.execCommand("undo"));
+    s_ctrlz.addEventListener("click", () => document.execCommand("redo"));
+}
+
+
+if ("buttons") {
+    function parse_sync_errors(log) {
+        const result = new Set();
+        if (!log) return result;
+        const re = /File "<sync>", \?≈\d+[^\n]*\n([ \t]+\S[^\n]*)/g;
+        let m;
+        while ((m = re.exec(log)) !== null) {
+            const errLine = m[1].trim();
+            input.value.split("\n").forEach((line, i) => {
+                if (line.trim() === errLine) result.add(i + 1);
+            });
+        }
+        return result;
+    }
+
+    function py(content) {
+        const key = point.value;
+        if (content === null) {
+            return fetch(`./py/${encodeURIComponent(key)}`).then(r => r.json());
+        }
+        if (content === false) {
+            return fetch(`./py/${encodeURIComponent(key)}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: 'false'
+            }).then(r => r.json());
+        }
+        return fetch(`./py/${encodeURIComponent(key)}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(content)
+        }).then(r => r.json());
+    }
+    
+    full.addEventListener("click", () => document.body.classList.toggle("fullscreen"));
+    
+    localStorage.clear();
+    setInterval(() => { py(null).then(data => {
+        localStorage["log"] = data
+    })}, 300);
+    setInterval(() => {
+        fetch('./py/sync').then(r => r.json()).then(data => {
+            localStorage["sync_log"] = data;
+            const errors = parse_sync_errors(data);
+            const changed = errors.size !== _sync_error_lines.size ||
+                [...errors].some(n => !_sync_error_lines.has(n));
+            _sync_error_lines = errors;
+            if (changed) nums_update();
+        });
+    }, 300);
+    
+    exec.onclick = () => {
+        const cw = output.contentWindow;
+        if (cw) { cw.close_log = false; cw.prev_log = ""; }
+
+        const doc = output.contentDocument;
+        const html = doc.documentElement.innerHTML;
+
+        // Находим конец __line_offset скрипта — сразу за ним user-контент
+        const needle = `window.__line_offset=${cw.__line_offset};`;
+        const idx = html.indexOf(needle);
+        const end = idx !== -1 ? html.indexOf('</' + 'script>', idx) + ('</' + 'script>').length : 0;
+        const user_start = (html.substring(0, end).match(/\n/g) || []).length;
+
+        // Считаем строки до первого <python> в user-контенте (из редактора)
+        const tag_m = (db(point.value) || '').match(/^[\s\S]*?<python[^>]*>/);
+        const lines_to_tag = tag_m ? (tag_m[0].match(/\n/g) || []).length : 0;
+
+        py(`<!--po:${user_start + lines_to_tag}-->` + html);
+    };
+    halt.onclick = () => py(false);
+
+    window._sync_texts = [];
+    window._ipc_text   = null;
+
+    function add_sync_blocks(texts) {
+        window._sync_texts.push(...texts.map(dedent));
+        _send_sync();
+    }
+
+    function _send_sync() {
+        const parts = [...(window._ipc_text ? [window._ipc_text] : []), ...window._sync_texts];
+        db('sync', parts.length ? parts.join('\n\n\n') : null);
+    }
+
+    output.addEventListener('load', () => {
+        const doc = output.contentDocument;
+        if (!doc || !doc.body) return;
+
+        window._sync_texts = [];
+        window._ipc_text   = null;
+
+        const syncBlocks = Array.from(doc.querySelectorAll('python[sync]'));
+        if (!syncBlocks.length) { db('sync', ''); return; }
+
+        const ipc = doc.querySelector('python[data-ipc]');
+        window._ipc_text   = ipc ? dedent(ipc.textContent) : null;
+        window._sync_texts = syncBlocks.map(b => dedent(b.textContent));
+        _send_sync();
+    });
+
+    meta_page.addEventListener("click", () => {
+        meta_mode = !meta_mode;
+        meta_page.textContent = meta_mode ? "page" : "meta";
+
+        if (meta_mode) {
+            meta(point.value).then(m => {
+                input.value = JSON.stringify(m || {}, null, 2);
+                nums_update();
+                update_highlight();
+            });
+        } else {
+            upd_input();
+        }
+    });
+}
+
+
+if ("point") {
+    let prev_point = "";
+
+    setInterval(() => {
+        const p = db("point");
+        if (p === null) return;          // WS ещё не готов / ключа нет — не трогаем текущее состояние
+        if (!delay && p != prev_point) {
+            prev_point = p || ""
+            point.value = prev_point
+            upd_input()
+        }
+    }, 300)
+
+    on_load(() => {
+        prev_point = db("point") || "";
+        point.value = prev_point;
+        upd_input();
+    });
+}
+
+
+if ("file_drop") {
+    ['dragenter', 'dragover'].forEach(eventName => {
+        file_input.addEventListener(eventName, () => {
+            file_drop.classList.add('dragover');
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        file_input.addEventListener(eventName, () => {
+            file_drop.classList.remove('dragover');
+        });
+    });
+    
+
+    // Сделать кастомные просмотрщики для файлов. к примеру если ключ называется png, то картинки будут отображаться с помощью html из этого ключа
+    function download() {
+        function escape_html(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        output.srcdoc = 'Загрузка...';
+
+        store(point.value)
+            .then(blob => {
+                const fileUrl = URL.createObjectURL(blob);
+                const lowerKey = point.value.toLowerCase();
+                output.srcdoc = `<style>
+                    html, body { margin: 0; height: 100%; box-sizing: border-box; }
+                    body { display: flex; align-items: center; justify-content: center; }
+                    body * { max-width: min(100vw, 100vh); max-height: min(100vw, 100vh); object-fit: contain; }
+                </style>`
+
+                if (/\.(jpg|jpeg|png|gif|webp|svg)$/.test(lowerKey)) {
+                    output.srcdoc += `<img src="${fileUrl}" alt="Preview">`;
+                } else if (/\.(mp4|webm|ogg)$/.test(lowerKey)) {
+                    output.srcdoc += `<video src="${fileUrl}" controls></video>`;
+                } else if (/\.(mp3|wav|ogg)$/.test(lowerKey)) {
+                    output.srcdoc += `<audio src="${fileUrl}" controls></audio>`;
+                } else if (/\.(txt|json|html|js|css|log)$/.test(lowerKey)) {
+                    blob.text().then(text => {
+                        output.srcdoc += `<pre>${escape_html(text)}</pre>`;
+                    });
+                } else {
+                    output.srcdoc += `
+                        <p>Этот тип файла нельзя отобразить напрямую.</p>
+                        <a href="${fileUrl}" download="${point.value}">Скачать файл</a>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                output.srcdoc = `<p style="color:red;">${error.message || 'Ошибка сети или сервера'}</p>`;
+            });
+    }
+
+    function load(file) {
+        store(point.value, file)
+            .then(res => {
+                if (res.ok) {
+                    alert(`Успешно загружено! Ключ: ${res.data.key}`);
+                } else {
+                    alert(`Ошибка: ${res.data.error || 'Неизвестная ошибка'}`);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка сети:', error);
+                alert('Не удалось связаться со знаком / сервером');
+            });
+    }
+
+    del.onclick = () => {
+        store(point.value, false).then(() => upd_input());
+    };
+
+    
+    file_input.addEventListener('change', (e) => {
+        const files = e.target.files;   
+        if (files.length > 0) {
+            load(files[0]);
+            upd_input();
+        }
+        file_input.value = "";
+    });
+}
+</script>
+</body>
+</html>
