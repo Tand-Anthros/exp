@@ -1,7 +1,10 @@
 # exp
-a customizable application with basic development tools
+Install the dependencies and run it.
 
-### run to install
+### run
 ```
-curl -sL https://githubusercontent.com -o archive.zip && unzip -q archive.zip && rm archive.zip
+python exec.py
 ```
+
+### notes
+Soon, the reliance on the back will disappear, and the method will change slightly...
